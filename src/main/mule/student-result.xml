@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="8ed348b5-6f15-4045-81e5-97fa61a9b123" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<file:config name="File_Config_Pass" doc:name="File Config" doc:id="f16d91f5-754e-4be2-9c10-9fbb7d8f91db" >
+		<file:connection workingDir="/Users/knr/Desktop/Results/Pass" />
+	</file:config>
+	<file:config name="File_Config_Fail" doc:name="File Config" doc:id="0fb1a303-4300-4441-9756-811912705ea8" >
+		<file:connection workingDir="/Users/knr/Desktop/Results/Fail" />
+	</file:config>
+	<flow name="student-resultFlow" doc:id="10926e02-b769-495e-8381-4189d18ec400" >
+		<http:listener doc:name="Listener" doc:id="50072a1b-2ab5-4443-93fe-d31c362eabdf" config-ref="HTTP_Listener_config" path="/marks"/>
+		<logger level="INFO" doc:name="Logger" doc:id="2e0f8140-1884-4ffe-b7e8-f2ccc3304e82" message="#[&quot;marks received for the student with id: &quot; ++ payload.'student-id']"/>
+		<ee:transform doc:name="Transform Message" doc:id="7ec4ce38-b099-4413-9bb7-655110a3b647" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload ++ {"result": if(payload.'total-marks'>80) "Pass" else "Fail"}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="3a5081bc-de05-4c15-97d0-7f856365fe41" >
+			<when expression='#[payload.result=="Pass"]'>
+				<ee:transform doc:name="Transform Message" doc:id="e2b89f4c-7329-42c4-ba09-2ce904b5a2b2">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload ++ {"grade": if(payload.'total-marks'>90) "A" else "B"}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<file:write doc:name="Write" doc:id="544ad74b-c688-450b-acdf-06704ae86abf" config-ref="File_Config_Pass" path="#[&quot;results of student :&quot; ++ payload.'student-id' ++ &quot;.json&quot;]"/>
+				<logger level="INFO" doc:name="Logger" doc:id="5083ba87-1b09-4ce3-83fd-cec75266e8b1" message="student marks saved in Pass folder"/>
+			</when>
+			<otherwise >
+				<file:write doc:name="Write" doc:id="666e416d-7b96-4889-b49a-6cd22b4f5b9e" config-ref="File_Config_Fail" path="#[&quot;results of student :&quot; ++ payload.'student-id' ++ &quot;.json&quot;]"/>
+				<logger level="INFO" doc:name="Logger" doc:id="0109cb0e-3947-415c-b32d-bcadc69bde0a" message="Student result saved IN FAIL FOLDER"/>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="fb77826a-bca5-4763-b3d2-7452d9fdc627" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Result saved to cheers"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
